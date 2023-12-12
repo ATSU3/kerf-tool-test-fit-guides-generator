@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, watch } from 'vue';
 
 const appState = reactive({
   clicked: false,
@@ -16,9 +16,21 @@ const appState = reactive({
   }
 });
 
+watch(() => appState.parameters.inc, (newValue) => {
+  if (newValue >= 0.01) {
+    appState.errorMessage = '';
+  }
+});
+
 const createSVG = async () => {
   appState.clicked = true;
   appState.displayDownloadText = false;
+
+  if (appState.parameters.inc < 0.01) {
+    appState.errorMessage = "(pitch) is too small. (pitch) can only be set to 1/100 mm increments. (刻み幅)は1/100mm単位までしか設定できません。";
+    appState.success = false;
+    return;
+  }
 
   try {
     const response = await fetch(`/kerf_check`, {
@@ -30,7 +42,10 @@ const createSVG = async () => {
     });
 
     if (!response.ok) {
-      throw new Error(`${response.status} ${response.statusText}`);
+      const errorData = await response.json();
+      appState.errorMessage = errorData.error || response.statusText;
+      appState.success = false;
+      return;
     }
 
     const data = await response.text();
@@ -39,7 +54,7 @@ const createSVG = async () => {
     appState.success = true;
     appState.displayDownloadText = true;
   } catch (error) {
-    appState.errorMessage = error.message;
+    appState.errorMessage = "An unexpected error occurred.";
     appState.success = false;
   }
 };
